@@ -1,0 +1,61 @@
+---
+version: "2.3"
+services:
+  traefik:
+    container_name: traefik
+    image: traefik
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/dockerfiles/letsencrypt:/letsencrypt"
+    command:
+      - --providers.docker
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.docker.network=traefik
+      - --api.dashboard=true
+      - "--certificatesresolvers.http.acme.email=example@domain.com"
+      - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme_http.json"
+      - "--certificatesresolvers.http.acme.httpchallenge.entrypoint=web"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--serversTransport.insecureSkipVerify=true"
+    labels:
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - 'traefik.http.routers.traefik.tls.certresolver=http'
+      - 'traefik.http.routers.traefik.rule=Host(`traefik.domain.com`)'
+      - 'traefik.http.routers.traefik.service=api@internal'
+      # Note: when used in docker-compose.yml all dollar signs in the hash need to be doubled for escaping.
+      # To create a user:password pair, the following command can be used:
+      # echo $(htpasswd -nb user password) | sed -e s/\\$/\\$\\$/g
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=test:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+    networks:
+      - traefik
+  web-example:
+    image: php:8-apache-buster
+    container_name: web-example
+    restart: unless-stopped
+    volumes:
+      - /dockerfiles/web-example:/var/www/html
+    labels:
+      - "traefik.http.routers.web-example.entrypoints=websecure"
+      - "traefik.http.routers.web-example.tls=true"
+      - "traefik.http.routers.web-example.tls.certresolver=http"
+      - "traefik.http.routers.web-example.rule=Host(`web-example.domain.com`)"
+      - "traefik.http.routers.web-example.service=web-example-loadbalancer"
+      - "traefik.http.services.web-example-loadbalancer.loadbalancer.server.port=80"
+      - "traefik.http.services.web-example-loadbalancer.loadbalancer.server.scheme=http"
+      #- "traefik.http.routers.wetty.middlewares=traefik-auth"  #enable for BasicAuth
+    networks:
+      - traefik
+
+#NETWORKS
+networks:
+  traefik:
+    external: true
+# The network needs to be created first with "docker network create traefik"
