@@ -50,7 +50,7 @@ services:
       - "traefik.http.routers.web-example.service=web-example-loadbalancer"
       - "traefik.http.services.web-example-loadbalancer.loadbalancer.server.port=80"
       - "traefik.http.services.web-example-loadbalancer.loadbalancer.server.scheme=http"
-      #- "traefik.http.routers.wetty.middlewares=traefik-auth"  #enable for BasicAuth
+      #- "traefik.http.routers.web-example.middlewares=traefik-auth"  #enable for BasicAuth
     networks:
       - traefik
 
